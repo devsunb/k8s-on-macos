@@ -1,0 +1,23 @@
+vmType: vz
+
+images:
+  - location: "https://cloud.debian.org/images/cloud/bookworm/20240429-1732/debian-12-genericcloud-arm64-20240429-1732.qcow2"
+    arch: "aarch64"
+    digest: "sha512:59afc40ad0062ca100c9280a281256487348c8aa23b3e70c329a6d6f29b5343b628622e63e0b9b4fc3987dd691d5f3c657233186b3271878d5e0aa0b4d264b06"
+
+cpus: 2
+memory: "2GiB"
+disk: "20GiB"
+
+networks:
+  - lima: shared
+    macAddress: "10:00:00:00:00:00"
+
+portForwards:
+  - guestPortRange: [30000, 32767]
+    hostPortRange: [30000, 32767]
+    hostIP: "0.0.0.0"
+
+mountType: virtiofs
+mounts:
+  - location: /Users/sunb

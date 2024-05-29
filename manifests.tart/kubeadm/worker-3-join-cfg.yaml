@@ -10,12 +10,12 @@ apiVersion: kubeadm.k8s.io/v1beta3
 kind: JoinConfiguration
 discovery:
   bootstrapToken:
-    apiServerEndpoint: 192.168.105.100:6443
+    apiServerEndpoint: 192.168.106.100:6443
     token: fzqm75.wbjwc4pcduwj2z7c
     unsafeSkipCAVerification: true
 nodeRegistration:
-  name: "worker-2"
+  name: "worker-3"
   criSocket: "unix:///var/run/containerd/containerd.sock"
   kubeletExtraArgs:
-    node-ip: 192.168.105.112
+    node-ip: 192.168.106.106
   ignorePreflightErrors:

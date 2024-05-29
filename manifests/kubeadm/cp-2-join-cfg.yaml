@@ -16,7 +16,7 @@ controlPlane:
 discovery:
   bootstrapToken:
     apiServerEndpoint: 192.168.105.100:6443
-    token: 9a08jv.c0izixklcxtmnze7
+    token: fzqm75.wbjwc4pcduwj2z7c
     unsafeSkipCAVerification: true
 nodeRegistration:
   name: "cp-2"
@@ -24,3 +24,4 @@ nodeRegistration:
   kubeletExtraArgs:
     node-ip: 192.168.105.102
   ignorePreflightErrors:
+

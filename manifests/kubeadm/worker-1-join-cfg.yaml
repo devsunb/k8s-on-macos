@@ -11,11 +11,11 @@ kind: JoinConfiguration
 discovery:
   bootstrapToken:
     apiServerEndpoint: 192.168.105.100:6443
-    token: 9a08jv.c0izixklcxtmnze7
+    token: fzqm75.wbjwc4pcduwj2z7c
     unsafeSkipCAVerification: true
 nodeRegistration:
   name: "worker-1"
   criSocket: "unix:///var/run/containerd/containerd.sock"
   kubeletExtraArgs:
-    node-ip: 192.168.105.104
+    node-ip: 192.168.105.111
   ignorePreflightErrors:
