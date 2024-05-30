@@ -17,5 +17,5 @@ nodeRegistration:
   name: "worker-3"
   criSocket: "unix:///var/run/containerd/containerd.sock"
   kubeletExtraArgs:
-    node-ip: 192.168.105.113
+    node-ip: 192.168.105.203
   ignorePreflightErrors:

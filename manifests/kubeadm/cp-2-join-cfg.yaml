@@ -24,4 +24,3 @@ nodeRegistration:
   kubeletExtraArgs:
     node-ip: 192.168.105.102
   ignorePreflightErrors:
-

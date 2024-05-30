@@ -11,10 +11,7 @@ But VM is required to run docker engine in macOS, and there is too many tools fo
 I tried multipass, utm, lima, colima, minikube, kind, k3d and decided to use below
 
 - a fully functional kubernetes cluster (kube-vip, 3 CPs, 3 Workers) based on lima and kubeadm for learning kubernetes architecture.
-- colima docker + minikube kubernetes cluster (1 CP, can add worker node) for testing multi-node (Affinity, PodDisruptionBudge, cordon, drain, ...), and testing multiple kubernetes versions
-- colima single node kubernetes cluster base on k3s for daily work
-  - simplest way
-  - LB Service is accessible with localhost without `minikube tunnel`
+- colima docker + minikube kubernetes cluster (1 CP, can add worker node) for daily work, testing multi-node (Affinity, PodDisruptionBudge, cordon, drain, ...), and testing multiple kubernetes versions
 
 # lima
 
@@ -74,15 +71,20 @@ it is neccessary to [reserve IPs](https://github.com/lima-vm/socket_vmnet#how-to
 
 Define following [/etc/bootptab](./etc/bootptab) file.
 
-| Host     | MAC Address       | IP address      | Comments                                    |
-| -------- | ----------------- | --------------- | ------------------------------------------- |
-| cp       | 10:00:00:00:00:00 | 192.168.105.100 | Control Plane (CP) Virtual IP (VIP) address |
-| cp-1     | 10:00:00:00:00:01 | 192.168.105.101 |                                             |
-| cp-2     | 10:00:00:00:00:02 | 192.168.105.102 | Additional CP node in HA CP cluster.        |
-| cp-3     | 10:00:00:00:00:03 | 192.168.105.103 | Additional CP node in HA CP cluster.        |
-| worker-1 | 10:00:00:00:01:01 | 192.168.105.111 |                                             |
-| worker-2 | 10:00:00:00:01:02 | 192.168.105.112 |                                             |
-| worker-3 | 10:00:00:00:01:03 | 192.168.105.113 |                                             |
+```sh
+# WARNING: this will overwrite your bootptab
+sudo cp etc/bootptab /etc/bootptab
+```
+
+| Host     | MAC Address       | IP address      |
+| -------- | ----------------- | --------------- |
+| cp       | 00:00:00:00:00:00 | 192.168.105.100 |
+| cp-1     | 00:00:00:00:00:01 | 192.168.105.101 |
+| cp-2     | 00:00:00:00:00:02 | 192.168.105.102 |
+| cp-3     | 00:00:00:00:00:03 | 192.168.105.103 |
+| worker-1 | 10:00:00:00:00:01 | 192.168.105.201 |
+| worker-2 | 10:00:00:00:00:02 | 192.168.105.202 |
+| worker-3 | 10:00:00:00:00:03 | 192.168.105.203 |
 
 If DHCP daemon already running, reload it.
 
@@ -108,26 +110,6 @@ From the assigned address pool following IPs are "reserved", leaving 12 addresse
 
 ## Misc
 
-### Proxying API server to macOS host
-
-Inside a `Control Plane` node, start HTTP proxy for Kubernetes API.
-
-```sh
-kubectl --kubeconfig $HOME/.kube/config proxy
-```
-
-Or on `macOS` host, start HTTP proxy for Kubernetes API.
-
-```sh
-kubectl --kubeconfig ~/.kube/config.k8s-on-macos proxy
-```
-
-Access Kubernetes API from `macOS` host using `curl`, `wget` or any `web browser` using following URL.
-
-```
-http://localhost:8001/api/v1
-```
-
 ### Exposing services via NodePort to macOS host
 
 It is possible to expose Kubernetes services via `NodePort` to `macOS` host. Full `NodePort` range `30000-32767` is exposed to `macOS` host from provisioned `Lima VM` machines during machine creation phaase.
@@ -145,22 +127,33 @@ limactl sudoers | sudo tee /private/etc/sudoers.d/lima
 ### Create VMs
 
 ```sh
-limactl create --set='.networks[].macAddress="10:00:00:00:00:01"' --name cp-1 lima.yaml --tty=false
-limactl create --set='.networks[].macAddress="10:00:00:00:00:02"' --name cp-2 lima.yaml --tty=false
-limactl create --set='.networks[].macAddress="10:00:00:00:00:03"' --name cp-3 lima.yaml --tty=false
-limactl create --set='.networks[].macAddress="10:00:00:00:01:01"' --name worker-1 lima.yaml --tty=false
-limactl create --set='.networks[].macAddress="10:00:00:00:01:02"' --name worker-2 lima.yaml --tty=false
-limactl create --set='.networks[].macAddress="10:00:00:00:01:03"' --name worker-3 lima.yaml --tty=false
+# if you create lima vm for the first time, lima will download vm image, so wait for the first vm to create before creating the others or you will get a file error.
+limactl create --set='.networks[].macAddress="00:00:00:00:00:01"' --name cp-1 lima.yaml --tty=false
+limactl create --set='.networks[].macAddress="00:00:00:00:00:02"' --name cp-2 lima.yaml --tty=false
+limactl create --set='.networks[].macAddress="00:00:00:00:00:03"' --name cp-3 lima.yaml --tty=false
+limactl create --set='.networks[].macAddress="10:00:00:00:00:01"' --name worker-1 lima.yaml --tty=false
+limactl create --set='.networks[].macAddress="10:00:00:00:00:02"' --name worker-2 lima.yaml --tty=false
+limactl create --set='.networks[].macAddress="10:00:00:00:00:03"' --name worker-3 lima.yaml --tty=false
 
+# if you start lima vm for the first time, lima will create user config file, so wait for the first vm to run before starting the others or you will get a file error.
+# and if you're staring more than one vm, start them at the same time, or start the other vms after the startup is complete.
+# Starting a vm when another vm is in the middle of starting causes a network error.
 limactl start cp-1
 limactl start cp-2
 limactl start cp-3
 limactl start worker-1
 limactl start worker-2
 limactl start worker-3
+
+limactl shell cp-1
+limactl shell cp-2
+limactl shell cp-3
+limactl shell worker-1
+limactl shell worker-2
+limactl shell worker-3
 ```
 
-run in all vms
+Run in all vms
 
 ```sh
 sudo apt update && sudo apt upgrade -y
@@ -170,9 +163,9 @@ cat <<EOF | sudo tee -a /etc/hosts
 192.168.105.101 cp-1
 192.168.105.102 cp-2
 192.168.105.103 cp-3
-192.168.105.111 worker-1
-192.168.105.112 worker-2
-192.168.105.113 worker-3
+192.168.105.201 worker-1
+192.168.105.202 worker-2
+192.168.105.203 worker-3
 EOF
 
 cat <<EOF | sudo tee -a /etc/modules-load.d/k8s.conf
@@ -214,17 +207,11 @@ sudo apt-mark hold kubeadm kubectl kubelet
 sudo systemctl enable --now kubelet
 ```
 
-check cp
-
-```sh
-cat /etc/containerd/config.toml | grep SystemdCgroup
-```
-
 ### Initiate Kubernetes Cluster
 
 #### Initiate Kubernetes Control Plane
 
-run limactl shell in k8s-on-macos
+run in each cp vms
 
 ```sh
 export KVVERSION=v0.8.0
@@ -242,11 +229,11 @@ sudo ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:$KVVERSION vip /kube-vip 
 # Kubernetes >=1.29 kube-vip workaround https://github.com/kube-vip/kube-vip/issues/684#issuecomment-1864855405
 sudo sed -i 's#path: /etc/kubernetes/admin.conf#path: /etc/kubernetes/super-admin.conf#' /etc/kubernetes/manifests/kube-vip.yaml
 
-# cp-1
+# run next line only in cp-1 and it should be done before running cp-2, cp-3 join command
 sudo kubeadm init --upload-certs --config manifests/kubeadm/cp-1-init-cfg.yaml
-# cp-2
+# run next line only in cp-2
 sudo kubeadm join --config manifests/kubeadm/cp-2-join-cfg.yaml
-# cp-3
+# run next line only in cp-3
 sudo kubeadm join --config manifests/kubeadm/cp-3-join-cfg.yaml
 
 sudo sed -i 's#path: /etc/kubernetes/super-admin.conf#path: /etc/kubernetes/admin.conf#' /etc/kubernetes/manifests/kube-vip.yaml
@@ -257,17 +244,20 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
 ```
 
 ```sh
-limactl cp cp-1:.kube/config $HOME/.kube/config
+# combine or replace ~/.kube/config in macOS
+limactl cp cp-1:.kube/config kubeconfig
 ```
 
 #### Join worker nodes to Kubernetes cluster
 
+run in each worker vms
+
 ```sh
-# worker-1
+# run next line only in worker-1
 sudo kubeadm join --config manifests/kubeadm/worker-1-join-cfg.yaml
-# worker-2
+# run next line only in worker-2
 sudo kubeadm join --config manifests/kubeadm/worker-2-join-cfg.yaml
-# worker-3
+# run next line only in worker-3
 sudo kubeadm join --config manifests/kubeadm/worker-3-join-cfg.yaml
 ```
 
@@ -284,9 +274,9 @@ kubectl get csr | grep "Pending" | awk '{print $1}' | xargs kubectl certificate 
 
 #### Install Cilium CNI
 
-##### ~~Install Gateway API Custom Resource Definitions~~
-
 Install Gateway API CRDs supported by Cilium.
+
+<https://docs.cilium.io/en/latest/network/servicemesh/gateway-api/gateway-api/>
 
 ```sh
 kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
@@ -298,21 +288,9 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v
 kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
 ```
 
-```
-kubectl delete -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
-kubectl delete -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
-kubectl delete -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml
-kubectl delete -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/standard/gateway.networking.k8s.io_referencegrants.yaml
-kubectl delete -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/experimental/gateway.networking.k8s.io_grpcroutes.yaml
-kubectl delete -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
-```
-
-##### Install and configure Cilium CNI
-
 Install CNI (Cilium) with L2 LB, L7 LB (Ingress Controller) and L4/L7 LB (Gateway API) support enabled.
 
 ```sh
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
 helm repo add cilium https://helm.cilium.io/
 helm repo update
 helm install cilium cilium/cilium --version 1.15.5 --namespace kube-system --values manifests/cilium/values.yaml
@@ -364,9 +342,9 @@ kubectl get --raw='/readyz?verbose'
 
 # UNAVAILABLE: tart
 
-**Unavailable because tart does not seem to support inter-VM connections**
+I tried to use tart instead of lima, but tart is **unavailable because it does not seem to support inter-VM connections**
 
-Configuration VM with tart, Initialize Kubernetes cluster with kubeadm
+Keep just for the record
 
 ## Versions
 
@@ -414,15 +392,15 @@ rm cilium-darwin-${CLI_ARCH}.tar.gz{,.sha256sum}
 
 #### Kubernetes node IP range
 
-| Host     | IP address      | Comments                                    |
-| -------- | --------------- | ------------------------------------------- |
-| cp       | 192.168.106.100 | Control Plane (CP) Virtual IP (VIP) address |
-| cp-1     | 192.168.106.101 |                                             |
-| cp-2     | 192.168.106.102 | Additional CP node in HA CP cluster.        |
-| cp-3     | 192.168.106.103 | Additional CP node in HA CP cluster.        |
-| worker-1 | 192.168.106.104 |                                             |
-| worker-2 | 192.168.106.105 |                                             |
-| worker-3 | 192.168.106.106 |                                             |
+| Host     | IP address      |
+| -------- | --------------- |
+| cp       | 192.168.106.100 |
+| cp-1     | 192.168.106.101 |
+| cp-2     | 192.168.106.102 |
+| cp-3     | 192.168.106.103 |
+| worker-1 | 192.168.106.104 |
+| worker-2 | 192.168.106.105 |
+| worker-3 | 192.168.106.106 |
 
 #### Kubernetes API server
 
@@ -436,34 +414,6 @@ From the assigned address pool following IPs are "reserved", leaving 12 addresse
 
 - `192.168.106.241` is assigned to `Ingress` (Cilium Ingress Controller) and
 - `192.168.106.242` is reserved for `Gateway` (Cilium Gateway API). `Gateway` configuration is work in progress.
-
-## Misc
-
-### Proxying API server to macOS host
-
-Inside a `Control Plane` node, start HTTP proxy for Kubernetes API.
-
-```sh
-kubectl --kubeconfig $HOME/.kube/config proxy
-```
-
-Or on `macOS` host, start HTTP proxy for Kubernetes API.
-
-```sh
-kubectl --kubeconfig ~/.kube/config.k8s-on-macos proxy
-```
-
-Access Kubernetes API from `macOS` host using `curl`, `wget` or any `web browser` using following URL.
-
-```
-http://localhost:8001/api/v1
-```
-
-### Exposing services via NodePort to macOS host
-
-It is possible to expose Kubernetes services via `NodePort` to `macOS` host. Full `NodePort` range `30000-32767` is exposed to `macOS` host from provisioned `Tart` machines during machine creation phaase.
-
-Actual services with `type: NodePort` will be available on `macOS` host via `node IP` address of any Control Plane or Worker nodes of a cluster (not via VIP address) and assigned `NodePort` value for a service.
 
 ## Setup
 
@@ -817,120 +767,16 @@ sudo ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:$KVVERSION vip /kube-vip 
 # Kubernetes >=1.29 kube-vip workaround https://github.com/kube-vip/kube-vip/issues/684#issuecomment-1864855405
 sudo sed -i 's#path: /etc/kubernetes/admin.conf#path: /etc/kubernetes/super-admin.conf#' /etc/kubernetes/manifests/kube-vip.yaml
 
+# --- NOT WORKING ---
 # --- run in cp-1 only
 sudo kubeadm init --upload-certs --config /mnt/shared/manifests/kubeadm/cp-1-init-cfg.yaml
 # --- run in cp-1 only
-
 # --- run in cp-2 only
 sudo kubeadm join --config /mnt/shared/manifests/kubeadm/cp-2-join-cfg.yaml
 # --- run in cp-2 only
-
 # --- run in cp-3 only
 sudo kubeadm join --config /mnt/shared/manifests/kubeadm/cp-3-join-cfg.yaml
 # --- run in cp-3 only
-
-sudo sed -i 's#path: /etc/kubernetes/super-admin.conf#path: /etc/kubernetes/admin.conf#' /etc/kubernetes/manifests/kube-vip.yaml
-
-mkdir -p $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
-cp $HOME/.kube/config /mnt/shared/config
-```
-
-#### Join worker nodes to Kubernetes cluster
-
-```sh
-# --- run in worker-1 only
-sudo kubeadm join --config /mnt/shared/manifests/kubeadm/worker-1-join-cfg.yaml
-# --- run in worker-1 only
-
-# --- run in worker-2 only
-sudo kubeadm join --config /mnt/shared/manifests/kubeadm/worker-2-join-cfg.yaml
-# --- run in worker-2 only
-
-# --- run in worker-3 only
-sudo kubeadm join --config /mnt/shared/manifests/kubeadm/worker-3-join-cfg.yaml
-# --- run in worker-3 only
-```
-
-### Post Cluster Creation Steps
-
-#### Manual approval of kubelet serving certificates
-
-Approve any pending `kubelet-serving` certificate
-
-```sh
-kubectl get csr
-kubectl get csr | grep "Pending" | awk '{print $1}' | xargs kubectl certificate approve
-```
-
-#### Install Cilium CNI
-
-##### Install Gateway API Custom Resource Definitions
-
-Install Gateway API CRDs supported by Cilium.
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/standard/gateway.networking.k8s.io_referencegrants.yaml
-# there is config/crd/standard/gateway.networking.k8s.io_grpcroutes.yaml in v1.1.0, but if use it an error occurs when cilium init
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/experimental/gateway.networking.k8s.io_grpcroutes.yaml
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
-```
-
-##### Install and configure Cilium CNI
-
-Install CNI (Cilium) with L2 LB, L7 LB (Ingress Controller) and L4/L7 LB (Gateway API) support enabled.
-
-```sh
-helm repo add cilium https://helm.cilium.io/
-helm install cilium cilium/cilium --version 1.15.4 --namespace kube-system --values manifests/cilium/values.yaml
-```
-
-Configure L2 announcements and address pool for L2 aware Load Balancer
-
-```sh
-kubectl apply -f manifests/cilium/l2-lb-cfg.yaml
-```
-
-Configure Gateway (default)
-
-```sh
-kubectl apply -f manifests/cilium/gtw-cfg.yaml
-```
-
-#### Install Metrics server add-on
-
-Install metrics server
-
-```sh
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-```
-
-#### Install Local path provisioner CSI
-
-Install local path provisioner
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.26/deploy/local-path-storage.yaml
-```
-
-Apply local path provisioner configuration. There will be a delay after `configmap` is applied before the provisioner picks it up.
-
-```sh
-kubectl apply -f manifests/local-path-provisioner/provisioner-cm.yaml
-```
-
-### Finals checks
-
-Check from that cluster works as expected
-
-```sh
-kubectl version
-cilium status
-kubectl get --raw='/readyz?verbose'
 ```
 
 # minikube
@@ -939,9 +785,48 @@ Single VM to Docker Runtime (colima), minikube with docker
 
 Pros over colima
 
-- multiple worker node
-- various kubernetes versions
+- Multiple worker node
+- Various kubernetes versions
+
+To use minikube docker driver, docker should be configured.
+
+```sh
+colima start -c 4 -m 4
+# -c 4: VM with 4 CPUs (default 2)
+# -m 4: VM with 4 GiB Memory (default 2)
+```
+
+docker context will be automatically configured
+
+```sh
+mk start -n 2 --kubernetes-version 1.30
+# -n 2: 2 nodes (Single CP/Worker and n-1 Workers)
+```
+
+`~/.kube/config` will be automatically modified
 
 # colima
 
-To Be Added
+I tried to use colima single node kubernetes cluster base on k3s for daily work but with basic setup, kubectl to colima kubernetes cluster while lima vms running occurs tls error:
+
+```
+Unable to connect to the server: tls: failed to verify certificate: x509: certificate signed by unknown authority
+```
+
+So now I use minikube instead.
+
+Pros over minikube
+
+- create/start/stop/delete is simpler and faster
+- LoadBalancer Service is accessible with localhost without `minikube tunnel`
+
+## Setup
+
+```sh
+colima start -k -c 4 -m 4
+# -k: start single node (k3s in docker) kubernetes cluster
+# -c 4: VM with 4 CPUs (default 2)
+# -m 4: VM with 4 GiB Memory (default 2)
+```
+
+docker context and `~/.kube/config` will be automatically modified
